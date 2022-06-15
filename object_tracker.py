@@ -9,6 +9,8 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
+# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"#avoid error
+
 import sys
 import numpy as np
 from pathlib import Path
@@ -34,6 +36,7 @@ from yolov5.utils.general import (LOGGER, check_img_size, non_max_suppression, s
                                   check_imshow, xyxy2xywh, increment_path, strip_optimizer, colorstr, print_args, check_file)
 from yolov5.utils.torch_utils import select_device, time_sync
 from yolov5.utils.plots import Annotator, colors, save_one_box
+from yolov5.utils.augmentations import letterbox
 from strong_sort.utils.parser import get_config
 from strong_sort.strong_sort import StrongSORT
 
@@ -42,7 +45,7 @@ logging.getLogger().removeHandler(logging.getLogger().handlers[0])
 
 #config constants
 SOURCE = '0'
-YOLO_WEIGHTS_PATH = WEIGHTS / 'yolov5m.pt' # model.pt path(s)
+YOLO_WEIGHTS_PATH = WEIGHTS / 'yolov5s.pt' # model.pt path(s)
 STRONG_SORT_WEIGHTS = WEIGHTS / 'osnet_x0_25_msmt17.pt' # model.pt path
 CONFIG_STRONGSORT = ROOT / 'strong_sort/configs/strong_sort.yaml'
 SIZE = (640,640) # inference size (height, width)
@@ -106,14 +109,14 @@ class ObjectTracker:
         self.save_dir = increment_path(Path(PROJECT) / self.exp_name, exist_ok=EXIST_OK)  # increment run
         (self.save_dir / 'tracks' if SAVE_TXT else self.save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
-    def process(self,img):
+    def process(self,img2,s_prev_frame):
         
         # Load model attribute
         stride, names, pt = self.model.stride, self.model.names, self.model.pt
-        imgsz = check_img_size(imgsz, s=stride)  # check image size
+        imgsz = check_img_size(SIZE, s=stride)  # check image size
         
         # Dataloader
-        dataset = LoadImages(img, img_size=imgsz, stride=stride, auto=pt)
+        # dataset = LoadImages(img, img_size=imgsz, stride=stride, auto=pt)
         nr_sources = 1
         
         outputs = [None] * nr_sources
@@ -122,100 +125,107 @@ class ObjectTracker:
         self.model.warmup(imgsz=(1 if pt else nr_sources, 3, *imgsz))  # warmup
         dt, seen = [0.0, 0.0, 0.0, 0.0], 0
         curr_frames, prev_frames = [None] * nr_sources, [None] * nr_sources
-        for frame_idx, (path, im, im0s, vid_cap, s) in enumerate(dataset):
-            t1 = time_sync()
-            im = torch.from_numpy(im).to(self.device)
-            im = im.half() if HALF else im.float()  # uint8 to fp16/32
-            im /= 255.0  # 0 - 255 to 0.0 - 1.0
-            if len(im.shape) == 3:
-                im = im[None]  # expand for batch dim
-            t2 = time_sync()
-            dt[0] += t2 - t1
 
-            # Inference
-            visualize = increment_path(self.save_dir / Path(path[0]).stem, mkdir=True) if VISUALIZE else False
-            pred = self.model(im, augment=AUGMENT, visualize=visualize)
-            t3 = time_sync()
-            dt[1] += t3 - t2
+        frame_idx = 0
+        im0s = img2
+        # Padded resize
+        im =  letterbox(im0s, SIZE[0], stride=stride, auto=pt)[0]
 
-            # Apply NMS
-            pred = non_max_suppression(pred, CONF_THRES, IOU_THRES, CLASSES, AGNOSTIC_NMS, max_det=MAX_DET)
-            dt[2] += time_sync() - t3
+        # Convert
+        im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        im = np.ascontiguousarray(im)
 
-            # Process detections
-            for i, det in enumerate(pred):  # detections per image
-                seen += 1
-                p, im0, _ = path, im0s.copy(), getattr(dataset, 'frame', 0)
-                p = Path(p)  # to Path
+        s = ""
+
+        t1 = time_sync()
+        im = torch.from_numpy(im).to(self.device)
+        im = im.half() if HALF else im.float()  # uint8 to fp16/32
+        im /= 255.0  # 0 - 255 to 0.0 - 1.0
+        if len(im.shape) == 3:
+            im = im[None]  # expand for batch dim
+        t2 = time_sync()
+        dt[0] += t2 - t1
+
+        # Inference
+        visualize = VISUALIZE
+        pred = self.model(im, augment=AUGMENT, visualize=visualize)
+        t3 = time_sync()
+        dt[1] += t3 - t2
+
+        # Apply NMS
+        pred = non_max_suppression(pred, CONF_THRES, IOU_THRES, CLASSES, AGNOSTIC_NMS, max_det=MAX_DET)
+        dt[2] += time_sync() - t3
+
+        # Process detections
+        for i, det in enumerate(pred):  # detections per image
+            seen += 1
+            im0 = im0s.copy()
                 
-                txt_file_name = p.parent.name  # get folder name containing current img
-                save_path = str(self.save_dir / p.parent.name)  # im.jpg, vid.mp4, ...
-                curr_frames[i] = im0
+            prev_frames[i] = s_prev_frame
+            curr_frames[i] = im0
 
-                txt_path = str(self.save_dir / 'tracks' / txt_file_name)  # im.txt
-                s += '%gx%g ' % im.shape[2:]  # print string
-                imc = im0.copy() if SAVE_CROP else im0  # for save_crop
+            s += '%gx%g ' % im.shape[2:]  # print string
+            imc = im0.copy() if SAVE_CROP else im0  # for save_crop
+            annotator = Annotator(im0, line_width=2, pil=not ascii)
 
-                annotator = Annotator(im0, line_width=2, pil=not ascii)
-                if self.cfg.STRONGSORT.ECC:  # camera motion compensation
-                    self.strongsort_list[i].tracker.camera_update(prev_frames[i], curr_frames[i])
+            if self.cfg.STRONGSORT.ECC:  # camera motion compensation
+                self.strongsort_list[i].tracker.camera_update(prev_frames[i], curr_frames[i])
 
-                sol = []
-                result_img = None   
-                if det is not None and len(det):
-                    # Rescale boxes from img_size to im0 size
-                    det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0.shape).round()
+            sol = []
+            result_img = im0   
+            if det is not None and len(det):
+                # Rescale boxes from img_size to im0 size
+                det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0.shape).round()
 
-                    # Print results
-                    for c in det[:, -1].unique():
-                        n = (det[:, -1] == c).sum()  # detections per class
-                        s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
+                # Print results
+                for c in det[:, -1].unique():
+                    n = (det[:, -1] == c).sum()  # detections per class
+                    s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
-                    xywhs = xyxy2xywh(det[:, 0:4])
-                    confs = det[:, 4]
-                    clss = det[:, 5]
+                xywhs = xyxy2xywh(det[:, 0:4])
+                confs = det[:, 4]
+                clss = det[:, 5]
 
-                    # pass detections to strongsort
-                    t4 = time_sync()
-                    outputs[i] = self.strongsort_list[i].update(xywhs.cpu(), confs.cpu(), clss.cpu(), im0)
-                    t5 = time_sync()
-                    dt[3] += t5 - t4
+                # pass detections to strongsort
+                t4 = time_sync()
+                outputs[i] = self.strongsort_list[i].update(xywhs.cpu(), confs.cpu(), clss.cpu(), im0)
+                t5 = time_sync()
+                dt[3] += t5 - t4
 
-                    # draw boxes for visualization
-                    if len(outputs[i]) > 0:
-                        for j, (output, conf) in enumerate(zip(outputs[i], confs)):
-        
-                            bboxes = output[0:4]
-                            id = output[4]
-                            cls = output[5]
+                # draw boxes for visualization
+                if len(outputs[i]) > 0:
+                    for j, (output, conf) in enumerate(zip(outputs[i], confs)):
+    
+                        bboxes = output[0:4]
+                        id = output[4]
+                        cls = output[5]
 
-                            if SAVE_TXT:
-                                # to MOT format
-                                bbox_left = output[0]
-                                bbox_top = output[1]
-                                bbox_w = output[2] - output[0]
-                                bbox_h = output[3] - output[1]
-                                
-                                print(('%g ' * 10 + '\n') % (frame_idx + 1, id, bbox_left,  # MOT format
-                                                                bbox_top, bbox_w, bbox_h, -1, -1, -1, i))
-                                sol.append([id,cls,int(bbox_left),int(bbox_top),int(bbox_w),int(bbox_h)])
+                        if SAVE_TXT:
+                            # to MOT format
+                            bbox_left = output[0]
+                            bbox_top = output[1]
+                            bbox_w = output[2] - output[0]
+                            bbox_h = output[3] - output[1]
+                            
+                            print(('%g ' * 10 + '\n') % (frame_idx + 1, id, bbox_left,  # MOT format
+                                                            bbox_top, bbox_w, bbox_h, -1, -1, -1, i))
+                            sol.append([id,cls,int(bbox_left),int(bbox_top),int(bbox_w),int(bbox_h)])
 
                         if SAVE_CROP:  # Add bbox to image
                             c = int(cls)  # integer class
                             id = int(id)  # integer id
                             label = f'{id} {names[c]} {conf:.2f}'
                             annotator.box_label(bboxes, label, color=colors(c, True))
-                            result_img = save_one_box(bboxes, imc, file=self.save_dir / 'crops' / txt_file_name / names[c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
+                            result_img = im0
+                LOGGER.info(f'{s}Done. YOLO:({t3 - t2:.3f}s), StrongSORT:({t5 - t4:.3f}s)')
 
-                    LOGGER.info(f'{s}Done. YOLO:({t3 - t2:.3f}s), StrongSORT:({t5 - t4:.3f}s)')
+            else:
+                self.strongsort_list[i].increment_ages()
+                LOGGER.info('No detections')
 
-                else:
-                    self.strongsort_list[i].increment_ages()
-                    LOGGER.info('No detections')
-
-                prev_frames[i] = curr_frames[i]
+            prev_frames[i] = curr_frames[i]
                 
-                return sol,result_img
+            return sol,result_img,curr_frames[i]
             
 def main():
     pass
