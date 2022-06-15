@@ -47,27 +47,32 @@ STRONG_SORT_WEIGHTS = WEIGHTS / 'osnet_x0_25_msmt17.pt' # model.pt path
 CONFIG_STRONGSORT = ROOT / 'strong_sort/configs/strong_sort.yaml'
 SIZE = 640 # inference size (height, width)
 DEVICE = '' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-CONF_THRES=0.25,  # confidence threshold
-IOU_THRES=0.45,  # NMS IOU threshold
-MAX_DET=1000,  # maximum detections per image
-CLASSES=None,  # filter by class: --class 0, or --class 0 2 3
-AGNOSTIC_NMS=False,  # class-agnostic NMS
-AUGMENT=False,  # augmented inference
-VISUALIZE=False,  # visualize features
-UPDATE=False,  # update all models
-HALF=False,  # use FP16 half-precision inference
-DNN=False,  # use OpenCV DNN for ONNX inference
-PROJECT=ROOT / 'runs/track',  # save results to project/name
-NAME='exp',  # save results to project/name
-EXIST_OK=False,  # existing project/name ok, do not increment
-SAVE_TXT=False,  # save results to *.txt
-SAVE_CROP=True,  # save cropped prediction boxes
+CONF_THRES=0.25  # confidence threshold
+IOU_THRES=0.45  # NMS IOU threshold
+MAX_DET=1000  # maximum detections per image
+CLASSES=None  # filter by class: --class 0, or --class 0 2 3
+AGNOSTIC_NMS=False  # class-agnostic NMS
+AUGMENT=False  # augmented inference
+VISUALIZE=False  # visualize features
+UPDATE=False  # update all models
+HALF=False  # use FP16 half-precision inference
+DNN=False  # use OpenCV DNN for ONNX inference
+PROJECT=ROOT / 'runs/track'  # save results to project/name
+NAME='exp'  # save results to project/name
+EXIST_OK=False  # existing project/name ok, do not increment
+SAVE_TXT=False  # save results to *.txt
+SAVE_CROP=True  # save cropped prediction boxes
 
 @torch.no_grad() 
 
 class ObjectTracker:
     
     def __init__(self,nr_sources = 1):
+        
+        # Load model
+        self.device = select_device(DEVICE)
+        self.model = DetectMultiBackend(YOLO_WEIGHTS_PATH, device=self.device, dnn=DNN, data=None, fp16=HALF)
+        
         # initialize StrongSORT
         self.cfg = get_config()
         self.cfg.merge_from_file(CONFIG_STRONGSORT)
@@ -78,7 +83,7 @@ class ObjectTracker:
             self.strongsort_list.append(
                 StrongSORT(
                     STRONG_SORT_WEIGHTS,
-                    DEVICE,
+                    self.device,
                     max_dist=self.cfg.STRONGSORT.MAX_DIST,
                     max_iou_distance=self.cfg.STRONGSORT.MAX_IOU_DISTANCE,
                     max_age=self.cfg.STRONGSORT.MAX_AGE,
@@ -89,11 +94,7 @@ class ObjectTracker:
 
                 )
             )
-        
-        # Load model
-        self.device = select_device(DEVICE)
-        self.model = DetectMultiBackend(YOLO_WEIGHTS_PATH, device=self.device, dnn=DNN, data=None, fp16=HALF)
-        
+            
         # Directories
         if not isinstance(YOLO_WEIGHTS_PATH, list):  # single yolo model
             self.exp_name = str(YOLO_WEIGHTS_PATH).rsplit('/', 1)[-1].split('.')[0]
