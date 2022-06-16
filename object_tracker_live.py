@@ -4,7 +4,7 @@ import cv2
 OT = ObjectTracker()
 
 cap = cv2.VideoCapture(0)
-
+prev_frames = None
 while cap.isOpened():
 	
     ret, frame = cap.read()
@@ -12,7 +12,7 @@ while cap.isOpened():
         print("Ignoring empty camera frame.")
         continue
     
-    _, res = OT.process(frame)
+    _, res, prev_frames = OT.process(frame, prev_frames)
     cv2.imshow('test', res)
 
     if cv2.waitKey(5) == ord("q"):
