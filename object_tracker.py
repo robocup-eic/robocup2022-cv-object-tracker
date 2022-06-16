@@ -9,7 +9,6 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"#avoid error
 
 import sys
 import numpy as np
