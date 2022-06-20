@@ -1,5 +1,5 @@
 # robocup2022-cv-object-tracker
-
+Yolov5 + StrongSORT with OSNet
 ## Installation
 
 1. Clone this project
@@ -13,3 +13,11 @@ $ conda env create -f environment.yml
 ```
 $ pip install -r requirements.txt
 ```
+
+## Weight
+You can change weight.pt by put a new weight in weight folder and change a parameter in object_tracker.py
+- YOLO_WEIGHTS_PATH = WEIGHTS / 'custom-weight.pt' 
+- STRONG_SORT_WEIGHTS = WEIGHTS / 'custom-strong_sort-weight'
+
+
+
