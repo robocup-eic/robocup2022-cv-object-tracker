@@ -3,7 +3,7 @@ Yolov5 + StrongSORT with OSNet
 ## Installation
 
 1. Clone this project
-2. Download all files from [LINK TO DRIVE](https://drive.google.com/file/d/16yhkaBn8zH6o6qcHhJ5FfsZWkLvac7Sm/view?usp=sharing)
+2. Download all files from [LINK TO DRIVE](https://drive.google.com/file/d/1pNfph4gwLnk0uBBaP1bTCfRouSXHPlF4/view?usp=sharing)
 3. Copy and paste any files from .zip to root folder
 4. Create conda environment
 ```
