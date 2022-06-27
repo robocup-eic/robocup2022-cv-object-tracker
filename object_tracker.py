@@ -226,7 +226,7 @@ class ObjectTracker:
 
         # prev_frames[i] = curr_frames[i]
             
-        return sol,result_img,curr_frames[i]
+        return sol,result_img,curr_frames[-1]
             
 def main():
     pass
