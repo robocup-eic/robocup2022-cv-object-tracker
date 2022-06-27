@@ -62,7 +62,7 @@ DNN=False  # use OpenCV DNN for ONNX inference
 PROJECT=ROOT / 'runs/track'  # save results to project/name
 NAME='exp'  # save results to project/name
 EXIST_OK=False  # existing project/name ok, do not increment
-SAVE_TXT=False  # save results to *.txt
+SAVE_TXT=True  # save results to *.txt
 SAVE_CROP=True  # save cropped prediction boxes
 
 @torch.no_grad() 
@@ -158,6 +158,7 @@ class ObjectTracker:
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             print("pred =",i,det)
+            # print("shape =",len(pred))
             seen += 1
             im0 = im0s.copy()
                 
