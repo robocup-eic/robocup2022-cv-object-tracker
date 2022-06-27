@@ -157,6 +157,7 @@ class ObjectTracker:
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
+            print("pred =",i,det)
             seen += 1
             im0 = im0s.copy()
                 
@@ -222,9 +223,9 @@ class ObjectTracker:
                 self.strongsort_list[i].increment_ages()
                 LOGGER.info('No detections')
 
-            prev_frames[i] = curr_frames[i]
-                
-            return sol,result_img,curr_frames[i]
+        # prev_frames[i] = curr_frames[i]
+            
+        return sol,result_img,curr_frames[i]
             
 def main():
     pass
