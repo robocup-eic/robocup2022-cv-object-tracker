@@ -3,7 +3,7 @@ Yolov5 + StrongSORT with OSNet
 ## Installation
 
 1. Clone this project
-2. Download all files from [LINK TO DRIVE](https://drive.google.com/file/d/1pNfph4gwLnk0uBBaP1bTCfRouSXHPlF4/view?usp=sharing)
+2. Download all files from [LINK TO DRIVE](https://drive.google.com/file/d/15cGcnpR2l2wn18c-WcxACnFoYDRPtE4C/view?usp=sharing)
 3. Copy and paste any files from .zip to root folder
 4. Create conda environment
 ```
@@ -18,6 +18,3 @@ $ pip install -r requirements.txt
 You can change weight.pt by put a new weight in weight folder and change a parameter in object_tracker.py
 - YOLO_WEIGHTS_PATH = WEIGHTS / 'custom-weight.pt' 
 - STRONG_SORT_WEIGHTS = WEIGHTS / 'custom-strong_sort-weight'
-
-
-
