@@ -1,7 +1,11 @@
 import argparse
+import json
 
 import os
+import socket
 from pickle import NONE
+
+from custom_socket import CustomSocket
 # limit the number of cpus used by high performance libraries
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -62,7 +66,7 @@ DNN=False  # use OpenCV DNN for ONNX inference
 PROJECT=ROOT / 'runs/track'  # save results to project/name
 NAME='exp'  # save results to project/name
 EXIST_OK=False  # existing project/name ok, do not increment
-SAVE_TXT=False  # save results to *.txt
+SAVE_TXT=True  # save results to *.txt
 SAVE_CROP=True  # save cropped prediction boxes
 
 @torch.no_grad() 
@@ -162,7 +166,7 @@ class ObjectTracker:
                 
             prev_frames[i] = s_prev_frame
             curr_frames[i] = im0
-
+        
             s += '%gx%g ' % im.shape[2:]  # print string
             imc = im0.copy() if SAVE_CROP else im0  # for save_crop
             annotator = Annotator(im0, line_width=2, pil=not ascii)
@@ -221,13 +225,38 @@ class ObjectTracker:
             else:
                 self.strongsort_list[i].increment_ages()
                 LOGGER.info('No detections')
-
-            prev_frames[i] = curr_frames[i]
-                
-            return sol,result_img,curr_frames[i]
+  
+        return sol,result_img,curr_frames[i]
             
 def main():
-    pass
+    OT = ObjectTracker()
+
+    HOST = socket.gethostname()
+    PORT = 10008
+
+    server = CustomSocket(HOST,PORT)
+    server.startServer()
+
+    while True :
+        conn, addr = server.sock.accept()
+        print("Client connected from",addr)
+        prev_frames = None
+        while True:
+            try:
+                data = server.recvMsg(conn)
+                img = np.frombuffer(data,dtype=np.uint8).reshape(720,1280,3)
+                sol, result_img, prev_frames = OT.process(img, prev_frames)
+                out = {}
+                obj = []
+                for s in sol:
+                    id, cls, x, y, w, h = s
+                    obj.append([id, cls, x, y, w, h])
+                out["result"] = obj
+                server.sendMsg(conn,json.dumps(out, indent = 4))
+            except Exception as e:
+                print(e)
+                print("CONNECTION CLOSED")
+                break
 
 if __name__ == '__main__':
     main()
