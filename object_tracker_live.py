@@ -12,8 +12,9 @@ while cap.isOpened():
         print("Ignoring empty camera frame.")
         continue
     
-    _, res, prev_frames = OT.process(frame, prev_frames)
+    sol, res, prev_frames = OT.process(frame, prev_frames)
     cv2.imshow('test', res)
+    print("bbox =",sol)
 
     if cv2.waitKey(5) == ord("q"):
         cap.release()
