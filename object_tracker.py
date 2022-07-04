@@ -229,9 +229,8 @@ class ObjectTracker:
         return sol,result_img,curr_frames[i]
             
 def main():
-    OT = ObjectTracker()
-
     HOST = socket.gethostname()
+    # HOST = "192.168.8.99"
     PORT = 10008
 
     server = CustomSocket(HOST,PORT)
@@ -241,6 +240,7 @@ def main():
         conn, addr = server.sock.accept()
         print("Client connected from",addr)
         prev_frames = None
+        OT = ObjectTracker()
         while True:
             try:
                 data = server.recvMsg(conn)
