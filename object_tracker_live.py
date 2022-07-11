@@ -3,7 +3,7 @@ import cv2
 
 OT = ObjectTracker()
 
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 prev_frames = None
 while cap.isOpened():
 	

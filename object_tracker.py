@@ -229,13 +229,14 @@ class ObjectTracker:
         return sol,result_img,curr_frames[i]
             
 def main():
-    OT = ObjectTracker()
-
-    HOST = socket.gethostname()
+    HOST = "0.0.0.0"
+    # HOST = "192.168.8.99"
     PORT = 10008
 
     server = CustomSocket(HOST,PORT)
     server.startServer()
+
+    OT = ObjectTracker()
 
     while True :
         conn, addr = server.sock.accept()
@@ -244,7 +245,8 @@ def main():
         while True:
             try:
                 data = server.recvMsg(conn)
-                img = np.frombuffer(data,dtype=np.uint8).reshape(720,1280,3)
+                img = np.frombuffer(data,dtype=np.uint8).reshape(480,640,3)
+                # img = np.frombuffer(data,dtype=np.uint8).reshape(720,1280,3)
                 sol, result_img, prev_frames = OT.process(img, prev_frames)
                 out = {}
                 obj = []
@@ -252,6 +254,7 @@ def main():
                     id, cls, x, y, w, h = s
                     obj.append([id, cls, x, y, w, h])
                 out["result"] = obj
+                out["n"] = len(obj)
                 server.sendMsg(conn,json.dumps(out, indent = 4))
             except Exception as e:
                 print(e)
