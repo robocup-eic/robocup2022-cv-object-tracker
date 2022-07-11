@@ -262,8 +262,8 @@ def main():
                 out = {}
                 obj = []
                 for s in sol:
-                    id, cls, x, y, w, h = s
-                    obj.append([id, cls, x, y, w, h])
+                    id, cls, classname, x, y, w, h = s
+                    obj.append([id, cls, classname, x, y, w, h])
                 out["result"] = obj
                 out["n"] = len(obj)
                 server.sendMsg(conn,json.dumps(out, indent = 4))
