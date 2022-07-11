@@ -13,7 +13,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-
+import yaml
 import sys
 import numpy as np
 from pathlib import Path
@@ -159,8 +159,15 @@ class ObjectTracker:
         pred = non_max_suppression(pred, CONF_THRES, IOU_THRES, CLASSES, AGNOSTIC_NMS, max_det=MAX_DET)
         dt[2] += time_sync() - t3
 
-        # Process detections
+        ##################################################
+        #Put names in .yaml here
+        class_names = ['Juice','Milk','Softdrink','Teabottle','Waterbottle','Apple','Banana','Lime','Onion','Orange','Coffeecup','Cereal','Chocolate','Instantnoodle','Jelly','Potatochip']
+        ##################################################
+        
+        # Process detection        
         for i, det in enumerate(pred):  # detections per image
+            print("pred =",i,det)
+            # print("shape =",len(pred))
             seen += 1
             im0 = im0s.copy()
                 
@@ -202,6 +209,7 @@ class ObjectTracker:
                         bboxes = output[0:4]
                         id = output[4]
                         cls = output[5]
+                        obj_name = class_names[int(cls)]
 
                         if SAVE_TXT:
                             # to MOT format
@@ -212,7 +220,7 @@ class ObjectTracker:
                             
                             print(('%g ' * 10 + '\n') % (frame_idx + 1, id, bbox_left,  # MOT format
                                                             bbox_top, bbox_w, bbox_h, -1, -1, -1, i))
-                            sol.append([id,cls,int(bbox_left),int(bbox_top),int(bbox_w),int(bbox_h)])
+                            sol.append([id,cls,obj_name,int(bbox_left),int(bbox_top),int(bbox_w),int(bbox_h)])
 
                         if SAVE_CROP:  # Add bbox to image
                             c = int(cls)  # integer class
@@ -225,8 +233,10 @@ class ObjectTracker:
             else:
                 self.strongsort_list[i].increment_ages()
                 LOGGER.info('No detections')
-  
-        return sol,result_img,curr_frames[i]
+
+        # prev_frames[i] = curr_frames[i]
+            
+        return sol,result_img,curr_frames[-1]
             
 def main():
     HOST = "0.0.0.0"
@@ -242,6 +252,7 @@ def main():
         conn, addr = server.sock.accept()
         print("Client connected from",addr)
         prev_frames = None
+        OT = ObjectTracker()
         while True:
             try:
                 data = server.recvMsg(conn)
