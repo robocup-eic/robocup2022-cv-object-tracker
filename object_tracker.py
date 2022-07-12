@@ -48,7 +48,7 @@ logging.getLogger().removeHandler(logging.getLogger().handlers[0])
 
 #config constants
 SOURCE = '0'
-YOLO_WEIGHTS_PATH = WEIGHTS / 'custom-weight.pt' # model.pt path(s)
+YOLO_WEIGHTS_PATH = WEIGHTS / 'custom-object-weight.pt' # model.pt path(s)
 STRONG_SORT_WEIGHTS = WEIGHTS / 'osnet_x0_25_msmt17.pt' # model.pt path
 CONFIG_STRONGSORT = ROOT / 'strong_sort/configs/strong_sort.yaml'
 SIZE = (640,640) # inference size (height, width)
@@ -161,7 +161,7 @@ class ObjectTracker:
 
         ##################################################
         #Put names in .yaml here
-        class_names = ['Juice','Milk','Softdrink','Teabottle','Waterbottle','Apple','Banana','Lime','Onion','Orange','Coffeecup','Cereal','Chocolate','Instantnoodle','Jelly','Potatochip']
+        class_names = ['banana', 'ice_tea', 'water', 'corn_flakes', 'bubble_tea', 'pockys', 'pringles', 'tuna_can', 'tonic', 'coke', 'strawberry', 'apple', 'orange', 'milk', 'peach']
         ##################################################
         
         # Process detection        
